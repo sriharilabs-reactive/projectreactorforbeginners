@@ -46,7 +46,7 @@ public class Exercises {
    */
   @Test
   public void someStarterValues() {
-    Flux<Integer> startFlux = Flux.just(1);
+    Flux<Integer> startFlux = Flux.just(1, 2, 3, 5);
 
     StepVerifier.create(startFlux).expectNext(1, 2, 3, 5).verifyComplete();
   }
@@ -56,7 +56,7 @@ public class Exercises {
    */
   @Test
   public void noValuesAtAll() {
-    Flux<Integer> startFlux = Flux.just(1);
+    Flux<Integer> startFlux = Flux.empty();
 
     StepVerifier.create(startFlux).expectComplete();
   }
@@ -66,7 +66,7 @@ public class Exercises {
    */
   @Test
   public void aMillionEvents() {
-    Flux<Integer> startFlux = Flux.just(1);
+    Flux<Integer> startFlux = Flux.range(1, 1000000);
 
     StepVerifier.create(startFlux).expectNext(1, 2, 3, 4, 5).expectNextCount(999994).expectNext(1000000).verifyComplete();
   }
@@ -79,7 +79,7 @@ public class Exercises {
    */
   @Test
   public void firstSubscription() {
-    Flux<Integer> startFlux = Flux.just(1);
+    Flux<Integer> startFlux = Flux.range(1, 10);
 
     startFlux.subscribe(System.out::println);
 
@@ -91,7 +91,7 @@ public class Exercises {
    */
   @Test
   public void everySecond() {
-    Flux<Long> startFlux = Flux.just(1L);
+    Flux<Long> startFlux = Flux.interval(Duration.ofMillis(500));
 
     startFlux.subscribe(System.out::println);
 
@@ -111,7 +111,7 @@ public class Exercises {
 
     VirtualTimeScheduler.getOrSet();
 
-    Flux<Long> slowedTimeFlux = Flux.just(1L);
+    Flux<Long> slowedTimeFlux = Flux.interval(Duration.ofSeconds(1));
 
     Step<Long> verifier = StepVerifier.withVirtualTime(() -> slowedTimeFlux.take(10)); //take(10) will only request the following 10 elements from the Flux
 
@@ -119,11 +119,11 @@ public class Exercises {
       verifier = verifier.thenAwait(Duration.ofSeconds(1)).expectNext(i);
     }
 
-    // verifier.verifyComplete(); Uncomment when you want to test
+    verifier.verifyComplete();
   }
 
   /**
-   * TODO 08 READ: Basic operators: We'll start looking at some basic operators that you can apply on Fluxes to change or filter out values. These are added onto the Reactive Pipelines through
+   * TODO 08 READ Basic operators: We'll start looking at some basic operators that you can apply on Fluxes to change or filter out values. These are added onto the Reactive Pipelines through
    * a builder pattern, straight onto the Fluxes. These will be applied to the different data values emitted by the Flux, extending the Reactive Pipeline.
    */
 
@@ -133,7 +133,9 @@ public class Exercises {
    */
   @Test
   public void basicMapper() {
-    Flux<Integer> startFlux = Flux.just(1);
+    Flux<Integer> startFlux =
+        Flux.range(1, 500000)
+            .map(i -> i * 2);
 
     StepVerifier.create(startFlux).expectNext(2, 4, 6, 8, 10).expectNextCount(499994).expectNext(1000000).verifyComplete();
   }
@@ -144,7 +146,9 @@ public class Exercises {
    */
   @Test
   public void basicFilter() {
-    Flux<Integer> startFlux = Flux.just(1);
+    Flux<Integer> startFlux =
+        Flux.range(1, 1000000)
+            .filter(i -> i % 2 == 0 && i % 3 == 0);
 
     StepVerifier.create(startFlux).expectNext(6, 12, 18).expectNextCount(166662).expectNext(999996).verifyComplete();
   }
@@ -155,7 +159,10 @@ public class Exercises {
   @Test
   public void chaining() {
     Flux<Integer> startFlux =
-        Flux.range(1, 10);
+        Flux.range(1, 10)
+            .map(i ->  i * 2)
+            .filter(i -> i % 2 == 0)
+            .map(i -> i - 1);
 
     StepVerifier.create(startFlux).expectNext(1, 3, 5, 7, 9).expectNextCount(4).expectNext(19).verifyComplete();
   }
@@ -169,7 +176,7 @@ public class Exercises {
    */
   @Test
   public void somethingSimple() {
-    Mono<String> letterMono = Mono.empty();
+    Mono<String> letterMono = Mono.just("a");
 
     StepVerifier.create(letterMono).expectNext("a").verifyComplete();
   }
@@ -181,8 +188,8 @@ public class Exercises {
   public void fluxMonoResults() {
     Flux<String> letters = Flux.just("A", "B", "C");
 
-    Mono<Boolean> anyLetterIsA = Mono.empty();
-    Mono<Boolean> allLettersAreA = Mono.empty();
+    Mono<Boolean> anyLetterIsA = letters.any(a -> a.equals("A"));
+    Mono<Boolean> allLettersAreA = letters.all(a -> a.equals("A"));
 
     StepVerifier.create(anyLetterIsA).expectNext(true).verifyComplete();
     StepVerifier.create(allLettersAreA).expectNext(false).verifyComplete();
@@ -193,7 +200,7 @@ public class Exercises {
    */
   @Test
   public void errors() {
-    Mono<Object> errorMono = Mono.empty();
+    Mono<Object> errorMono = Mono.error(new IllegalArgumentException());
 
     StepVerifier.create(errorMono).verifyError(IllegalArgumentException.class);
   }
@@ -204,7 +211,8 @@ public class Exercises {
    */
   @Test
   public void errorAfterSomeGoodResults() {
-    Flux<Integer> errorAfterAWhileFlux = Flux.just(0);
+    Flux<Integer> errorAfterAWhileFlux = Flux.just(20, 25, 50, 100, 0)
+        .map(i -> 100 / i);
 
     StepVerifier.create(errorAfterAWhileFlux).expectNext(5, 4, 2, 1).verifyError(ArithmeticException.class);
   }
@@ -221,7 +229,11 @@ public class Exercises {
   public void aMillionMonos() {
     List<Mono<Integer>> monosList = new ArrayList<>();
 
-    Flux<Integer> resultFlux = Flux.empty();
+    for(int i = 0; i < 1000000; i++) {
+      monosList.add(Mono.just(5));
+    }
+
+    Flux<Integer> resultFlux = Flux.concat(monosList);
 
     StepVerifier.create(resultFlux).expectNextCount(1000000).verifyComplete();
   }
@@ -234,7 +246,7 @@ public class Exercises {
     Mono<String> letterMono = Mono.just("A");
     Mono<Integer> numberMono = Mono.just(1);
 
-    Mono<String> letterNumberMono = Mono.empty();
+    Mono<String> letterNumberMono = Mono.zip(letterMono, numberMono, (l, n) -> l + n);
 
     StepVerifier.create(letterNumberMono).expectNext("A1").verifyComplete();
   }
@@ -252,7 +264,7 @@ public class Exercises {
     Flux<String> letters = Flux.just("a", "b", "c", "d", "e");
     Flux<Integer> numbers = Flux.range(1, 5);
 
-    Flux<String> lettersAndNumbers = Flux.empty();
+    Flux<String> lettersAndNumbers = Flux.zip(letters, numbers).map(t -> t.getT1() + t.getT2());
 
     StepVerifier.create(lettersAndNumbers).expectNext("a1", "b2", "c3", "d4", "e5").verifyComplete();
   }
@@ -265,7 +277,7 @@ public class Exercises {
     Flux<String> letters = Flux.just("a", "b", "c", "d", "e");
     Flux<Integer> numbers = Flux.range(1, 5);
 
-    Flux<String> lettersAndNumbers = Flux.empty();
+    Flux<String> lettersAndNumbers = Flux.concat(letters, numbers.map(i -> "" + i));
 
     StepVerifier.create(lettersAndNumbers).expectNext("a", "b", "c", "d", "e", "1", "2", "3", "4", "5").verifyComplete();
   }
@@ -278,7 +290,7 @@ public class Exercises {
     Flux<String> letters = Flux.just("a", "b", "c", "d", "e");
     Flux<Long> timeFlux = Flux.interval(Duration.ofSeconds(1));
 
-    Flux<String> slowedLetters = Flux.empty();
+    Flux<String> slowedLetters = Flux.zip(letters, timeFlux, (a, b) -> a);
 
     StepVerifier.create(slowedLetters).expectNext("a").thenAwait(Duration.ofSeconds(1)).expectNext("b").expectNextCount(2).expectNext("e").verifyComplete();
   }
@@ -298,7 +310,7 @@ public class Exercises {
     Flux<String> upperCaseStream = Flux.from(lettersToShare).map(String::toUpperCase);
     Flux<String> numberAddedStream = Flux.from(lettersToShare).zipWith(Flux.range(1, 5), (l, n) -> l + n);
 
-    Flux<String> combinedStreams = Flux.empty();
+    Flux<String> combinedStreams = Flux.concat(upperCaseStream, numberAddedStream);
 
     StepVerifier.create(combinedStreams).expectNext("A", "B", "C", "D", "E", "a1", "b2", "c3", "d4", "e5").verifyComplete();
   }
@@ -318,7 +330,10 @@ public class Exercises {
     TopicProcessor<String> topicProcessor = TopicProcessor.create();
     lettersToShare.subscribe(topicProcessor);
 
-    Flux<String> combinedStreams = Flux.empty();
+    Flux<String> upperCaseStream = Flux.from(topicProcessor).map(String::toUpperCase);
+    Flux<String> numberAddedStream = Flux.from(topicProcessor).zipWith(Flux.range(1, 5), (l, n) -> l + n);
+
+    Flux<String> combinedStreams = Flux.concat(upperCaseStream, numberAddedStream);
 
     StepVerifier.create(combinedStreams).expectNext("A", "B", "C", "D", "E", "a1", "b2", "c3", "d4", "e5").verifyComplete();
   }
@@ -333,11 +348,24 @@ public class Exercises {
   public void comparingTheTwo() {
     Flux<Long> lettersToShare = Flux.interval(Duration.ofSeconds(1)).take(10).share();
 
-    // sleep(10); uncomment when you run your test
+    for(int i = 0; i < 1000; i++) {
+      final int fluxNr = i;
+      Flux.from(lettersToShare).map(n -> "Flux " + fluxNr + " " + n).subscribe(System.out::println);
+    }
+
+    sleep(10);
 
     Flux<Long> moreLettersToShare = Flux.interval(Duration.ofSeconds(1)).take(10);
 
-    // sleep(10); uncomment when you run your test
+    TopicProcessor<Long> topicProcessor = TopicProcessor.create();
+    moreLettersToShare.subscribe(topicProcessor);
+
+    for(int i = 0; i < 1000; i++) {
+      final int fluxNr = i;
+      Flux.from(topicProcessor).map(n -> "Flux " + fluxNr + " " + n).subscribe(System.out::println);
+    }
+
+    sleep(10);
   }
 
   /**
